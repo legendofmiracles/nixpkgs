@@ -1725,6 +1725,18 @@ final: prev:
     meta.homepage = "https://github.com/notomo/gesture.nvim/";
   };
 
+  gesture-nvim = buildVimPluginFrom2Nix {
+    pname = "gesture-nvim";
+    version = "2021-06-05";
+    src = fetchFromGitHub {
+      owner = "notomo";
+      repo = "gesture.nvim";
+      rev = "8913b1b7b153186e9b745c039a144faf3c927fa6";
+      sha256 = "14jqr5yqhw5gaxg7026h2iaz3j09flaxc9gnxp2gc1ii4rwygl0m";
+    };
+    meta.homepage = "https://github.com/notomo/gesture.nvim/";
+  };
+
   ghcid = buildVimPluginFrom2Nix {
     pname = "ghcid";
     version = "2021-05-16";

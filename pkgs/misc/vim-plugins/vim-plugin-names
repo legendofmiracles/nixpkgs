@@ -20,7 +20,7 @@ AndrewRadev/sideways.vim@main
 AndrewRadev/splitjoin.vim@main
 andsild/peskcolor.vim
 andviro/flake8-vim
-andweeb/presence.nvim
+andweeb/presence.nvim@main
 andymass/vim-matchup
 andys8/vim-elm-syntax
 antoinemadec/coc-fzf
@@ -457,6 +457,8 @@ noc7c9/vim-iced-coffee-script
 norcalli/nvim-colorizer.lua
 norcalli/nvim-terminal.lua
 norcalli/snippets.nvim
+notomo/gesture.nvim
+notomo/gesture.nvim
 npxbr/glow.nvim@main
 npxbr/gruvbox.nvim@main
 ntpeters/vim-better-whitespace
@@ -787,6 +789,7 @@ will133/vim-dirdiff
 wincent/command-t
 wincent/ferret
 windwp/nvim-autopairs
+winston0410/mark-radar.nvim
 wlangstroth/vim-racket
 wsdjeg/vim-fetch
 xavierd/clang_complete
