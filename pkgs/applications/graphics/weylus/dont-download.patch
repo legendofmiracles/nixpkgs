@@ -1,0 +1,14 @@
+diff --git a/deps/build.sh b/deps/build.sh
+index 7d8cf31..12a4dcc 100755
+--- a/deps/build.sh
++++ b/deps/build.sh
+@@ -20,8 +20,6 @@ fi
+ 
+ export NPROCS="$(nproc || echo 4)"
+ 
+-./download.sh
+-
+ if [ "$TARGET_OS" == "windows" ]; then
+     if [ "$HOST_OS" == "linux" ]; then
+         export CROSS_COMPILE="x86_64-w64-mingw32-"
+

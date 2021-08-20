@@ -1,0 +1,13 @@
+diff --git a/Makefile b/Makefile
+index a51c2c9..095f630 100644
+--- a/Makefile
++++ b/Makefile
+@@ -14,6 +14,7 @@ install: all
+ 	$(INSTALL) -m 0755 -d '$(DESTDIR)$(PREFIX)/include/ffnvcodec'
+ 	$(INSTALL) -m 0644 include/ffnvcodec/*.h '$(DESTDIR)$(PREFIX)/include/ffnvcodec'
+ 	$(INSTALL) -m 0755 -d '$(DESTDIR)$(PREFIX)/$(LIBDIR)/pkgconfig'
++	chmod 777 ffnvcodec.pc
+ 	$(INSTALL) -m 0644 ffnvcodec.pc '$(DESTDIR)$(PREFIX)/$(LIBDIR)/pkgconfig'
+ 
+ uninstall:
+

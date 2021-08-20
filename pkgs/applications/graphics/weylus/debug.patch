@@ -1,0 +1,17 @@
+diff --git a/deps/ffmpeg.sh b/deps/ffmpeg.sh
+index e538f48..db24cef 100755
+--- a/deps/ffmpeg.sh
++++ b/deps/ffmpeg.sh
+@@ -16,7 +16,10 @@ PKG_CONFIG_PATH="../dist/lib/pkgconfig" ./configure \
+ 	--disable-autodetect \
+ 	--extra-cflags="$FFMPEG_CFLAGS" \
+ 	--extra-ldflags="$FFMPEG_LIBRARY_PATH" \
+-	$FFMPEG_EXTRA_ARGS
++	$FFMPEG_EXTRA_ARGS || echo what; cat ffbuild/config.log
++
++echo $?
++echo howww
+ 
+ make -j$NPROCS
+ make install
+

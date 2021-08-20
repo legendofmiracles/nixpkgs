@@ -1,0 +1,18 @@
+diff --git a/build.rs b/build.rs
+index bc97e83..b7c59c5 100644
+--- a/build.rs
++++ b/build.rs
+@@ -7,12 +7,6 @@ fn build_ffmpeg() {
+         return;
+     }
+ 
+-    Command::new("bash")
+-        .arg(Path::new("clean.sh"))
+-        .current_dir("deps")
+-        .status()
+-        .expect("Failed to run clean ffmpeg build!");
+-
+     if !Command::new("bash")
+         .arg(Path::new("build.sh"))
+         .current_dir("deps")
+
