@@ -11,17 +11,20 @@ let
     eula=true
   '';
 
-  whitelistFile = pkgs.writeText "whitelist.json"
-    (builtins.toJSON
-      (mapAttrsToList (n: v: { name = n; uuid = v; }) cfg.whitelist));
+  whitelistFile = pkgs.writeText "whitelist.json" (builtins.toJSON
+    (mapAttrsToList
+      (n: v: {
+        name = n;
+        uuid = v;
+      })
+      cfg.whitelist));
 
   cfgToString = v: if builtins.isBool v then boolToString v else toString v;
 
   serverPropertiesFile = pkgs.writeText "server.properties" (''
     # server.properties managed by NixOS configuration
-  '' + concatStringsSep "\n" (mapAttrsToList
-    (n: v: "${n}=${cfgToString v}") cfg.serverProperties));
-
+  '' + concatStringsSep "\n"
+    (mapAttrsToList (n: v: "${n}=${cfgToString v}") cfg.serverProperties));
 
   # To be able to open the firewall, we need to read out port values in the
   # server properties, but fall back to the defaults when those don't exist.
@@ -30,27 +33,27 @@ let
 
   serverPort = cfg.serverProperties.server-port or defaultServerPort;
 
-  rconPort = if cfg.serverProperties.enable-rcon or false
-    then cfg.serverProperties."rcon.port" or 25575
-    else null;
+  rconPort =
+    if cfg.serverProperties.enable-rcon or false then
+      cfg.serverProperties."rcon.port" or 25575
+    else
+      null;
 
-  queryPort = if cfg.serverProperties.enable-query or false
-    then cfg.serverProperties."query.port" or 25565
-    else null;
+  queryPort =
+    if cfg.serverProperties.enable-query or false then
+      cfg.serverProperties."query.port" or 25565
+    else
+      null;
 
-in {
+in
+{
   options = {
     services.minecraft-server = {
 
-      enable = mkOption {
-        type = types.bool;
-        default = false;
-        description = ''
-          If enabled, start a Minecraft Server. The server
-          data will be loaded from and saved to
-          <option>services.minecraft-server.dataDir</option>.
-        '';
-      };
+      enable = mkEnableOption ''
+        If enabled, start a Minecraft Server. The server
+        data will be loaded from and saved to
+        <option>services.minecraft-server.dataDir</option>.'';
 
       declarative = mkOption {
         type = types.bool;
@@ -92,13 +95,15 @@ in {
       };
 
       whitelist = mkOption {
-        type = let
-          minecraftUUID = types.strMatching
-            "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" // {
+        type =
+          let
+            minecraftUUID = types.strMatching
+              "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" // {
               description = "Minecraft UUID";
             };
-          in types.attrsOf minecraftUUID;
-        default = {};
+          in
+          types.attrsOf minecraftUUID;
+        default = { };
         description = ''
           Whitelisted players, only has an effect when
           <option>services.minecraft-server.declarative</option> is
@@ -119,7 +124,7 @@ in {
 
       serverProperties = mkOption {
         type = with types; attrsOf (oneOf [ bool int str ]);
-        default = {};
+        default = { };
         example = literalExample ''
           {
             server-port = 43000;
@@ -158,25 +163,83 @@ in {
           + "-XX:MinHeapFreeRatio=5 -XX:MaxHeapFreeRatio=10";
         description = "JVM options for the Minecraft server.";
       };
+
+      fabric = mkOption {
+        type = types.submodule {
+          options = {
+            enable = mkOption {
+              default = false;
+              type = types.bool;
+              description = ''
+                Enable fabric (https://fabricmc.net/).
+                If enabled you can use all options from normal minecraft, except for <option>services.minecraft-server.package</option>; use <option>services.minecraft-server.fabric.version instead.
+                Note that you must set a fabric version since maintaing whatever newest version there is, would be too much work.
+              '';
+            };
+
+            version = mkOption {
+              type = types.str;
+              description = "Fabric version to install. This accepts minecraft version numbers, as long as fabric supports it.";
+            };
+
+            mods = mkOption {
+              type = with types; listOf anything;
+              default = [ ];
+              description = ''
+                Mods to place in the mods directory. You can fetch the mods with <option>fetchurl</option> and friends.
+              '';
+              example = ''
+                [
+                  # fetches it from the internet
+                  (fetchurl {
+                    url = "example.org/mod.jar";
+                    sha256 = lib.fakeSha256;
+                  })
+
+                  # real path
+                  ./mod.jar
+
+                  # copies it into the nix store
+                  ''${./mod.jar}
+
+                  # fetch a tarball and only use a specific mod
+                  "''${fetchzip {
+                        url = "example.org/mods.zip";
+                        sha256 = lib.fakeSha256;
+                      }}/example.jar"
+                ]
+              '';
+            };
+          };
+        };
+        default = {
+          enable = false;
+          version = "";
+          mods = [ ];
+        };
+      };
     };
   };
 
   config = mkIf cfg.enable {
 
     users.users.minecraft = {
-      description     = "Minecraft server service user";
-      home            = cfg.dataDir;
-      createHome      = true;
-      uid             = config.ids.uids.minecraft;
+      description = "Minecraft server service user";
+      home = cfg.dataDir;
+      createHome = true;
+      isSystemUser = true;
+      group = "minecraft";
     };
 
+    users.groups.minecraft = { };
+
     systemd.services.minecraft-server = {
-      description   = "Minecraft Server Service";
-      wantedBy      = [ "multi-user.target" ];
-      after         = [ "network.target" ];
+      description = "Minecraft Server Service";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
 
       serviceConfig = {
-        ExecStart = "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}";
+        ExecStart = if !cfg.fabric.enable then "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}" else "${pkgs.jre_headless}/bin/java -jar ./server.jar ";
         Restart = "always";
         User = "minecraft";
         WorkingDirectory = cfg.dataDir;
@@ -209,26 +272,35 @@ in {
         if [ -e .declarative ]; then
           rm .declarative
         fi
-      '');
+      '') + (if cfg.fabric.enable then ''
+        printenv HOME
+        ${pkgs.fabric-installer}/bin/fabric-installer server -mcversion ${cfg.fabric.version} -downloadMinecraft -dir .
+
+        # this part is taken from here: https://fabricmc.net/wiki/player:tutorials:install_server
+        # Rename jars
+        mv server.jar vanilla.jar
+        mv fabric-server-launch.jar server.jar
+        echo "serverJar=vanilla.jar" > fabric-server-launcher.properties
+        # links all of the mods in place
+        ${lib.strings.concatMapStrings (x: "ln -s ${x} mods/$(basename ${x})") cfg.fabric.mods}
+      '' else '''');
     };
 
     networking.firewall = mkIf cfg.openFirewall (if cfg.declarative then {
       allowedUDPPorts = [ serverPort ];
-      allowedTCPPorts = [ serverPort ]
-        ++ optional (queryPort != null) queryPort
+      allowedTCPPorts = [ serverPort ] ++ optional (queryPort != null) queryPort
         ++ optional (rconPort != null) rconPort;
     } else {
       allowedUDPPorts = [ defaultServerPort ];
       allowedTCPPorts = [ defaultServerPort ];
     });
 
-    assertions = [
-      { assertion = cfg.eula;
-        message = "You must agree to Mojangs EULA to run minecraft-server."
-          + " Read https://account.mojang.com/documents/minecraft_eula and"
-          + " set `services.minecraft-server.eula` to `true` if you agree.";
-      }
-    ];
+    assertions = [{
+      assertion = cfg.eula;
+      message = "You must agree to Mojangs EULA to run minecraft-server."
+        + " Read https://account.mojang.com/documents/minecraft_eula and"
+        + " set `services.minecraft-server.eula` to `true` if you agree.";
+    }];
 
   };
 }
