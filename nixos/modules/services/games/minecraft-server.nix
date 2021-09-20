@@ -5,6 +5,8 @@ with lib;
 let
   cfg = config.services.minecraft-server;
 
+  mods = lib.strings.concatStringsSep "\n" (x: x) cfg.fabric.mods;
+
   # We don't allow eula=false anyways
   eulaFile = builtins.toFile "eula.txt" ''
     # eula.txt managed by NixOS Configuration
@@ -173,13 +175,22 @@ in
               description = ''
                 Enable fabric (https://fabricmc.net/).
                 If enabled you can use all options from normal minecraft, except for <option>services.minecraft-server.package</option>; use <option>services.minecraft-server.fabric.version instead.
-                Note that you must set a fabric version since maintaing whatever newest version there is, would be too much work.
               '';
             };
 
-            version = mkOption {
+            minecraftVersion = mkOption {
               type = types.str;
-              description = "Fabric version to install. This accepts minecraft version numbers, as long as fabric supports it.";
+              description = "Minecraft version to install, as long as fabric supports it.";
+            };
+
+            loaderVersion = mkOption {
+              type = types.str;
+              description = "Fabric version to install. Leave empty for newest.";
+            };
+
+            loaderAutoUpdate = mkOption {
+              type = types.bool;
+              description = "Wether to auto-update the fabric loader version, and check for updates every time the server startes.";
             };
 
             mods = mkOption {
@@ -210,12 +221,34 @@ in
                 ]
               '';
             };
+
+            fabricApi = {
+              type = types.submodule {
+                options = {
+                  install = mkOption {
+                    type = with types; bool;
+                    default = true;
+                    description = ''
+                      Wether to install the fabric api, latest version for your selected minecraft version will be downloaded from https://modrinth.com.
+                    '';
+                  };
+                };
+              };
+              default = {
+                install = true;
+              };
+            };
           };
         };
         default = {
           enable = false;
-          version = "";
+          minecraftVersion = "";
+          loaderVersion = "";
+          loaderAutoUpdate = false;
           mods = [ ];
+          fabricApi = {
+            install = true;
+          };
         };
       };
     };
@@ -236,16 +269,17 @@ in
     systemd.services.minecraft-server = {
       description = "Minecraft Server Service";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [ "network-online.target" ];
 
       serviceConfig = {
-        ExecStart = if !cfg.fabric.enable then "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}" else "${pkgs.jre_headless}/bin/java -jar ./server.jar ";
+        ExecStart = if !cfg.fabric.enable then "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}" else "${pkgs.jre8_headless}/bin/java -jar fabric-server-launch.jar ";
         Restart = "always";
         User = "minecraft";
         WorkingDirectory = cfg.dataDir;
       };
 
       preStart = ''
+        set -x
         ln -sf ${eulaFile} eula.txt
       '' + (if cfg.declarative then ''
 
@@ -273,16 +307,23 @@ in
           rm .declarative
         fi
       '') + (if cfg.fabric.enable then ''
-        printenv HOME
-        ${pkgs.fabric-installer}/bin/fabric-installer server -mcversion ${cfg.fabric.version} -downloadMinecraft -dir .
+        # file to check if we have installed the specific version of the minecraft server already
+        if [ "$(cat .fabric-version 2> /dev/null)" != "${cfg.fabric.version}" ]; then
+          set -x
+          ${pkgs.fabric-installer}/bin/fabric-installer server -mcversion ${cfg.fabric.version} -downloadMinecraft ${if cfg.fabric.loaderVersion != "" then cfg.fabric.loaderVersion else ""}
 
-        # this part is taken from here: https://fabricmc.net/wiki/player:tutorials:install_server
-        # Rename jars
-        mv server.jar vanilla.jar
-        mv fabric-server-launch.jar server.jar
-        echo "serverJar=vanilla.jar" > fabric-server-launcher.properties
-        # links all of the mods in place
-        ${lib.strings.concatMapStrings (x: "ln -s ${x} mods/$(basename ${x})") cfg.fabric.mods}
+          echo ${cfg.fabric.version} > .fabric-version
+        fi
+
+        # checks if we need to install a new fabric api version
+        if [ "$(cat mods/.api-mod 2> /dev/null)" != "${mods}" ]; then
+          mkdir mods || true
+          ${pkgs.curl}/bin/curl "$(${pkgs.curl}/bin/curl https://api.modrinth.com/api/v1/mod/P7dR8mSH/version | ${pkgs.jq}/bin/jq -r '[.[] | select(.game_versions[] == "${cfg.fabric.version}")] | .[0].files[0].url')" -o mods/fabric-api.jar
+
+          # links all of the mods in place
+          ${lib.strings.concatMapStrings (x: "ln -fs ${x} mods/${lib.concatStringsSep "-" (builtins.tail (lib.splitString "-" (builtins.baseNameOf x)))}") cfg.fabric.mods}
+          echo "${lib.strings.concatStrings cfg.fabric.mods}" > mods/.mods
+        fi
       '' else '''');
     };
 
