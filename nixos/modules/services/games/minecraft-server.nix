@@ -236,16 +236,17 @@ in
     systemd.services.minecraft-server = {
       description = "Minecraft Server Service";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
+      after = [ "network-online.target" ];
 
       serviceConfig = {
-        ExecStart = if !cfg.fabric.enable then "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}" else "${pkgs.jre_headless}/bin/java -jar ./server.jar ";
+        ExecStart = if !cfg.fabric.enable then "${cfg.package}/bin/minecraft-server ${cfg.jvmOpts}" else "${pkgs.jre8_headless}/bin/java -jar fabric-server-launch.jar ";
         Restart = "always";
         User = "minecraft";
         WorkingDirectory = cfg.dataDir;
       };
 
       preStart = ''
+        set -x
         ln -sf ${eulaFile} eula.txt
       '' + (if cfg.declarative then ''
 
@@ -273,16 +274,19 @@ in
           rm .declarative
         fi
       '') + (if cfg.fabric.enable then ''
-        printenv HOME
-        ${pkgs.fabric-installer}/bin/fabric-installer server -mcversion ${cfg.fabric.version} -downloadMinecraft -dir .
+        # file to check if we have installed the specific version of the minecraft server already
+        if [ "$(cat .fabric-version 2> /dev/null)" != "${cfg.fabric.version}" ]; then
+          ${pkgs.fabric-installer}/bin/fabric-installer server -mcversion ${cfg.fabric.version} -downloadMinecraft #-dir .
 
-        # this part is taken from here: https://fabricmc.net/wiki/player:tutorials:install_server
-        # Rename jars
-        mv server.jar vanilla.jar
-        mv fabric-server-launch.jar server.jar
-        echo "serverJar=vanilla.jar" > fabric-server-launcher.properties
-        # links all of the mods in place
-        ${lib.strings.concatMapStrings (x: "ln -s ${x} mods/$(basename ${x})") cfg.fabric.mods}
+          echo ${cfg.fabric.version} > .fabric-version
+        fi
+
+        # checks if new mods were added
+        if [ "$(cat mods/.mods 2> /dev/null)" != "${lib.strings.concatStrings cfg.fabric.mods}" ]; then
+          # links all of the mods in place
+          ${lib.strings.concatMapStrings (x: "ln -fs ${x} mods/$(basename ${x})") cfg.fabric.mods}
+          echo "${lib.strings.concatStrings cfg.fabric.mods}" > mods/.mods
+        fi
       '' else '''');
     };
 
