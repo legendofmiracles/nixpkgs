@@ -3,6 +3,9 @@
 , rustPlatform
 , pkg-config
 , extra-cmake-modules
+, stdenv
+, CoreFoundation
+, Foundation
 , libX11
 , libXi
 , libXtst
@@ -30,7 +33,7 @@ rustPlatform.buildRustPackage rec {
     extra-cmake-modules
     pkg-config
     makeWrapper
-  ];
+  ] ++ lib.optionals (stdenv.isDarwin) [ CoreFoundation Foundation ];
 
   buildInputs = [
     libX11
