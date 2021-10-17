@@ -40,18 +40,18 @@ rustPlatform.buildRustPackage rec {
     libXtst
     libXi
     libnotify
-    xclip
     openssl
-    xdotool
-  ];
+  ] ++ lib.optionals (!stdenv.isDarwin) [ xdotool ];
 
   # Some tests require networking
   doCheck = false;
 
-  postInstall = ''
+  # we only need to wrap on linux
+  postInstall = if stdenv.isDarwin != true then
+  ''
     wrapProgram $out/bin/espanso \
       --prefix PATH : ${lib.makeBinPath [ libnotify xclip ]}
-  '';
+  '' else "";
 
   meta = with lib; {
     description = "Cross-platform Text Expander written in Rust";
