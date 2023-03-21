@@ -101,9 +101,7 @@ in
         User = "photoprism";
         Group = "photoprism";
         DynamicUser = true;
-        StateDirectory = "photoprism";
-        WorkingDirectory = "/var/lib/photoprism";
-        RuntimeDirectory = "photoprism";
+        WorkingDirectory = cfg.storagePath;
 
         LoadCredential = lib.optionalString (cfg.passwordFile != null)
           "PHOTOPRISM_ADMIN_PASSWORD:${cfg.passwordFile}";
@@ -119,6 +117,8 @@ in
         ProtectKernelLogs = true;
         ProtectKernelModules = true;
         ProtectKernelTunables = true;
+        ProtectSystem = "full";
+        ReadWritePaths = cfg.originalsPath cfg.importPath cfg.
         RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
         RestrictNamespaces = true;
         RestrictRealtime = true;
